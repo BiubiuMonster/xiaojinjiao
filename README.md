@@ -2,9 +2,20 @@
 
 一个 Windows 桌面角标账本：把上班时间按薪资换算成"实时收益"，用愿望碎片衡量离想买的东西还有多远，并把日常支出从当日收益里扣除，生成日账单与月账单。
 
+## 下载
+
+[![最新版本](https://img.shields.io/github/v/release/BiubiuMonster/xiaojinjiao?label=最新版本)](https://github.com/BiubiuMonster/xiaojinjiao/releases/latest)
+
+| 版本 | 说明 |
+| --- | --- |
+| [免安装版（推荐）](https://github.com/BiubiuMonster/xiaojinjiao/releases/latest/download/xiaojinjiao-portable.exe) | 双击即用，不写注册表，用完直接删文件 |
+| [安装版](https://github.com/BiubiuMonster/xiaojinjiao/releases/latest/download/xiaojinjiao-setup.exe) | 安装到本机，自动创建桌面和开始菜单快捷方式 |
+
+> 仅支持 Windows 10 / 11 64 位。首次运行如遇 SmartScreen 提示"未知发布者"，点「更多信息」→「仍要运行」即可。
+
 ## 功能
 
-- **桌面角标**：启动后只在屏幕右上角显示一个常驻小卡片，实时显示今日收益，可直接开始/结束赚钱。
+- **桌面角标**：启动后默认在屏幕右下角显示一个常驻小卡片（可拖动或右键切换到四角），实时显示今日收益，可直接开始/结束赚钱。
   - `↗` 展开完整主界面，主界面点"收起到角标"折回。
   - `—` 收进右下角系统托盘；双击托盘图标或点托盘菜单"唤出角标"即可恢复。
   - `◐` 点击循环切换透明度（100% / 85% / 70% / 50% / 30%），右键菜单与托盘菜单也可精确选择。

@@ -47,7 +47,11 @@
         }
       ]
     },
+    "portable": {
+      "artifactName": "xiaojinjiao-portable.exe"
+    },
     "nsis": {
+      "artifactName": "xiaojinjiao-setup.exe",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
