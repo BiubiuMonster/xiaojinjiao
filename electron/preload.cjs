@@ -4,6 +4,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
   loadData: () => ipcRenderer.invoke('load-data'),
   saveData: (data) => ipcRenderer.invoke('save-data', data),
+  loadHolidays: () => ipcRenderer.invoke('load-holidays'),
+  onHolidaysUpdated: (callback) => {
+    const listener = (_event, yearsData) => callback(yearsData)
+    ipcRenderer.on('holidays-updated', listener)
+    return () => ipcRenderer.removeListener('holidays-updated', listener)
+  },
   openMain: () => ipcRenderer.invoke('open-main'),
   hideMain: () => ipcRenderer.invoke('hide-main'),
   minimizeMain: () => ipcRenderer.invoke('minimize-main'),

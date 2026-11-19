@@ -1,5 +1,5 @@
 import { reactive, watch } from 'vue'
-import { formatDate } from './holidays.js'
+import { formatDate, applyRemoteHolidays } from './holidays.js'
 import { applyTheme } from './theme.js'
 
 const STORAGE_KEY = 'xiaojinjiao-v1'
@@ -67,6 +67,15 @@ function applyData(data) {
 
 export async function initStore() {
   let data = null
+  if (window.electronAPI && window.electronAPI.loadHolidays) {
+    try {
+      const yearsData = await window.electronAPI.loadHolidays()
+      if (yearsData) applyRemoteHolidays(yearsData)
+      window.electronAPI.onHolidaysUpdated((incoming) => applyRemoteHolidays(incoming))
+    } catch (error) {
+      console.error('读取节假日数据失败:', error)
+    }
+  }
   if (window.electronAPI && window.electronAPI.loadData) {
     try {
       data = await window.electronAPI.loadData()

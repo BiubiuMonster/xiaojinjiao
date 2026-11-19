@@ -1,3 +1,5 @@
+import { shallowRef } from 'vue'
+
 const pad = (n) => String(n).padStart(2, '0')
 
 export function formatDate(date) {
@@ -38,11 +40,23 @@ const HOLIDAY_DATA = {
 
 const cache = new Map()
 
+// 启动时由主进程通过网络拉取的节假日数据，按年份覆盖内置数据。
+// 结构：{ [year]: { holidays: [[start, end], ...], makeups: [date, ...] } }
+const remoteData = shallowRef({})
+
+export function applyRemoteHolidays(yearsData) {
+  if (!yearsData || typeof yearsData !== 'object') return
+  remoteData.value = { ...remoteData.value, ...yearsData }
+  cache.clear()
+}
+
 function yearData(year) {
+  // 读取远程数据以建立响应式依赖，保证拉取完成后相关 computed 会重新计算
+  const remote = remoteData.value
   if (!cache.has(year)) {
-    const raw = HOLIDAY_DATA[year] || { holidays: [], makeups: [] }
+    const raw = remote[year] || HOLIDAY_DATA[year] || { holidays: [], makeups: [] }
     const holidaySet = new Set()
-    for (const [start, end] of raw.holidays) {
+    for (const [start, end] of raw.holidays || []) {
       const from = parseDate(start)
       const to = parseDate(end)
       const cursor = new Date(from)
@@ -53,8 +67,8 @@ function yearData(year) {
     }
     cache.set(year, {
       holidaySet,
-      makeupSet: new Set(raw.makeups),
-      available: Boolean(HOLIDAY_DATA[year])
+      makeupSet: new Set(raw.makeups || []),
+      available: Boolean(remote[year] || HOLIDAY_DATA[year])
     })
   }
   return cache.get(year)
@@ -73,5 +87,7 @@ export function hasHolidayData(year) {
 }
 
 export function supportedYears() {
-  return Object.keys(HOLIDAY_DATA).map(Number).sort()
+  const years = new Set(Object.keys(HOLIDAY_DATA).map(Number))
+  for (const year of Object.keys(remoteData.value)) years.add(Number(year))
+  return [...years].sort((a, b) => a - b)
 }

@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, screen } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const https = require('https')
 
 let mainWindow = null
 let widgetWindow = null
@@ -71,6 +72,114 @@ function broadcast(channel, payload, excludeWebContents) {
       win.webContents.send(channel, payload)
     }
   }
+}
+
+const HOLIDAY_CACHE_TTL = 7 * 24 * 60 * 60 * 1000
+
+function holidayCacheFile() {
+  return path.join(app.getPath('userData'), 'holidays-cache.json')
+}
+
+function readHolidayCache() {
+  try {
+    const file = holidayCacheFile()
+    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch (err) {
+    console.error('读取节假日缓存失败:', err)
+  }
+  return null
+}
+
+function writeHolidayCache(cache) {
+  try {
+    fs.mkdirSync(path.dirname(holidayCacheFile()), { recursive: true })
+    fs.writeFileSync(holidayCacheFile(), JSON.stringify(cache), 'utf8')
+    return true
+  } catch (err) {
+    console.error('保存节假日缓存失败:', err)
+    return false
+  }
+}
+
+function parseTimorHolidays(year, payload) {
+  if (!payload || payload.code !== 0 || !payload.holiday) return null
+  const entries = Object.values(payload.holiday)
+  const holidays = []
+  const makeups = []
+  for (const item of entries) {
+    const date = item && item.date
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue
+    if (item.holiday === false) {
+      makeups.push(date)
+    } else if (item.holiday === true) {
+      holidays.push([date, date])
+    }
+  }
+  return { holidays, makeups: makeups.sort() }
+}
+
+function fetchHolidayYear(year) {
+  return new Promise((resolve) => {
+    const url = `https://timor.tech/api/holiday/year/${year}/`
+    const req = https.get(url, { timeout: 8000 }, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume()
+        return resolve(null)
+      }
+      let body = ''
+      res.setEncoding('utf8')
+      res.on('data', (chunk) => { body += chunk })
+      res.on('end', () => {
+        try {
+          resolve(parseTimorHolidays(year, JSON.parse(body)))
+        } catch (err) {
+          console.error('解析节假日数据失败:', err)
+          resolve(null)
+        }
+      })
+    })
+    req.on('timeout', () => req.destroy())
+    req.on('error', (err) => {
+      console.error('拉取节假日数据失败:', err.message)
+      resolve(null)
+    })
+  })
+}
+
+function loadCachedHolidays() {
+  const cache = readHolidayCache()
+  if (!cache || !cache.years) return null
+  return cache.years
+}
+
+async function refreshHolidays() {
+  const now = new Date()
+  const years = [now.getFullYear(), now.getFullYear() + 1]
+  const cache = readHolidayCache() || { fetchedAt: 0, years: {} }
+  cache.years = cache.years || {}
+
+  const stale = Date.now() - (cache.fetchedAt || 0) > HOLIDAY_CACHE_TTL
+  const missing = years.some((year) => !cache.years[year])
+  if (!stale && !missing) return null
+
+  const results = await Promise.all(years.map((year) => fetchHolidayYear(year)))
+  let changed = false
+  years.forEach((year, index) => {
+    if (results[index]) {
+      cache.years[year] = results[index]
+      changed = true
+    }
+  })
+  if (!changed) return null
+
+  cache.fetchedAt = Date.now()
+  writeHolidayCache(cache)
+  return cache.years
+}
+
+function pushHolidays(yearsData) {
+  if (!yearsData) return
+  broadcast('holidays-updated', yearsData)
 }
 
 function pageUrl(mode) {
@@ -323,6 +432,13 @@ app.whenReady().then(() => {
   }
 
   ipcMain.handle('load-data', () => readData())
+  ipcMain.handle('load-holidays', () => loadCachedHolidays())
+
+  const cachedHolidays = loadCachedHolidays()
+  if (cachedHolidays) pushHolidays(cachedHolidays)
+  refreshHolidays().then((yearsData) => {
+    if (yearsData) pushHolidays(yearsData)
+  })
 
   ipcMain.handle('save-data', (event, data) => {
     const ok = writeData(data)
